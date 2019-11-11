@@ -14,10 +14,50 @@ will you have to use q*/
 
 struct termios original_term;
 
+void editorRawRows(){
+    int y;
+    for(y=0; y < 24; y++){
+        write(STDOUT_FILENO, "~\r\n", 3);
+    }
+}
+
+void editorRefreshScreen(){
+    write(STDOUT_FILENO, "\x1b[2J", 4);
+    write(STDOUT_FILENO, "\x1b[H", 3);
+
+    editorRawRows();
+    write(STDOUT_FILENO, "\x1b[H", 3);
+}
+
+void editorRefreshScreenExit(){
+    write(STDOUT_FILENO, "\x1b[2J", 4);
+    write(STDOUT_FILENO, "\x1b[H", 3);
+}
 
 void die(const char *error){
+    editorRefreshScreenExit();
     perror(error);
     exit(1);
+}
+
+char editorReadKey(){
+    int  nread;
+    char c;
+    while((nread = read(STDIN_FILENO, &c, 1)) != 1){
+        if(nread == -1 && errno != EAGAIN) die("read");
+    }
+    return c;
+}
+
+void editorProcessKeyPress(){
+    char c = editorReadKey();
+    switch (c)
+    {
+    case CTRL_KEY('q'):
+        editorRefreshScreenExit();
+        exit(0);
+        break;
+    }
 }
 
 void disableRawMode(){
@@ -47,22 +87,13 @@ void enableRawMode(){
 
 int main(){
     
-
+   
     enableRawMode();
-    
-    char c='\0';
 
-    printf("STDIN_FILENO %i \n", STDIN_FILENO);
-    if(read(STDIN_FILENO, &c, 1)==-1 && errno != EAGAIN) die("read");
 
     while (1){
-        if(iscntrl(c)) {
-            printf("%d\r\n", c);
-        }else {
-            printf("%d ('%c')\r\n", c, c);
-        }
-
-        if(c == CTRL_KEY('q'))break;
+        editorRefreshScreen();
+        editorProcessKeyPress();
     }
 
     return 0;
