@@ -19,7 +19,12 @@ void enableRawMode(){
     struct termios raw =  original_term;
     
     tcgetattr(STDIN_FILENO, &raw);
-    raw.c_lflag &= ~(ECHO | ICANON);
+    raw.c_cflag &= ~( BRKINT| ICRNL| ISTRIP | IXON );
+    raw.c_cflag &= ~(OPOST);
+    raw.c_cflag &= ~(CS8);
+    raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+    raw.c_cc[VMIN];
+    raw.c_cc[VTIME];
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 
     atexit(disableRawMode); // is call where exit of the program
