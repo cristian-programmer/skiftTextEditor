@@ -7,12 +7,20 @@ will you have to use q*/
 #include <termios.h>
 #include <ctype.h>
 #include <errno.h>
+#include <sys/ioctl.h>
 
 #define KILL_KILO 'q'
+#define INFINITY_LOOP 1
 
 #define CTRL_KEY(k) ((k) & 0x1f)
 
-struct termios original_term;
+struct editorConfig {
+    int sceenrows;
+    int screencols;
+    struct termios original_term;
+};
+struct editorConfig E;
+
 
 void editorRawRows(){
     int y;
@@ -49,6 +57,21 @@ char editorReadKey(){
     return c;
 }
 
+int getWindowSize(int *rows, int *cols){
+    struct winsize ws;
+
+    if(1 || ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 
+    || ws.ws_col == 0){
+        if(write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12) return -1;
+        editorReadKey();
+        return -1;
+    }else{
+        *cols = ws.ws_col;
+        *rows = ws.ws_row;
+        return 0;
+    }
+}
+
 void editorProcessKeyPress(){
     char c = editorReadKey();
     switch (c)
@@ -61,16 +84,16 @@ void editorProcessKeyPress(){
 }
 
 void disableRawMode(){
-    if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &original_term)== -1)
+    if(tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.original_term)== -1)
         die("tcsetattr");
 }
 
 void enableRawMode(){   
-    if(tcgetattr(STDIN_FILENO, &original_term)== -1)
+    if(tcgetattr(STDIN_FILENO, &E.original_term)== -1)
         die("tcgetattr");
     atexit(disableRawMode); // is call where exit of the program
     
-    struct termios raw =  original_term;
+    struct termios raw =  E.original_term;
     
     raw.c_cflag &= ~( BRKINT| ICRNL| ISTRIP | IXON );
     raw.c_cflag &= ~(OPOST);
@@ -83,15 +106,24 @@ void enableRawMode(){
 
 }
 
+void initEditor(){
+    if(getWindowSize(&E.sceenrows, &E.screencols) == -1) 
+        die("getWindowSize");
+}
 
+void editorDrawRows(){
+    int y;
+    for(y =0; y < E.sceenrows; y++){
+        write(STDOUT_FILENO, "~\r\n", 3);
+    }
+}
 
 int main(){
-    
-   
+
     enableRawMode();
+    initEditor();
 
-
-    while (1){
+    while (INFINITY_LOOP){
         editorRefreshScreen();
         editorProcessKeyPress();
     }
